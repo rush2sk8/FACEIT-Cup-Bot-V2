@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import discord
+from discord.ext import commands
 from dotenv import load_dotenv
 from PIL import Image
 
@@ -20,7 +21,7 @@ curr_cup = {
     "users": []
 }
 
-client = discord.Client()
+bot = commands.Bot(command_prefix='!', intents= discord.Intents.default())
 
 def has_cup():
     """See if there is a current message"""
@@ -53,8 +54,8 @@ async def ping_players(message):
 
 async def get_user_msg_reaction_from_payload(payload):
     """Given a payload it will fetch the user, message, and reaction"""
-    user = await client.fetch_user(payload.user_id)
-    message = await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
+    user = await bot.fetch_user(payload.user_id)
+    message = await bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
     reaction = message.reactions
     return (user, message, reaction)
 
@@ -71,13 +72,12 @@ async def send_cup_message(message):
         # Download player avatars
         await user.avatar_url.save(f'player{i}.png')
 
-
     # Create a special tiled image
     player1 = Image.open('player0.png')
     player2 = Image.open('player1.png')
-    # player3 = Image.open('player2.png')
-    # player4 = Image.open('player3.png')
-    # player5 = Image.open('player4.png')
+    player3 = Image.open('player2.png')
+    player4 = Image.open('player3.png')
+    player5 = Image.open('player4.png')
 
     image_size = player1.size
 
@@ -87,9 +87,9 @@ async def send_cup_message(message):
     # Paste in players
     new.paste(player1, (0,0))
     new.paste(player2, (image_size[0],0))
-    # new.paste(player3, (image_size[0]*2,0))
-    # new.paste(player4, (image_size[0] - (int(image_size[0]/2)), image_size[0]))
-    # new.paste(player5, (image_size[0] + (int(image_size[0]/2)), image_size[0]))
+    new.paste(player3, (image_size[0]*2,0))
+    new.paste(player4, (image_size[0] - (int(image_size[0]/2)), image_size[0]))
+    new.paste(player5, (image_size[0] + (int(image_size[0]/2)), image_size[0]))
 
     # Save image
     new.save('gallery.png', 'PNG')
@@ -112,65 +112,69 @@ async def send_cup_message(message):
     except FileNotFoundError:
         pass
 
-@client.event
+@bot.event
+async def on_command_error(ctx, error):
+    """Handle cooldown error"""
+    if isinstance(error, commands.CommandOnCooldown):
+        msg = '**Still on cooldown**, please try again in {:.2f}s'.format(error.retry_after)
+        await ctx.send(msg)
+
+@bot.event
 async def on_ready():
     """Event when the bot logs in"""
-    await client.change_presence(activity=discord.Streaming(name="by rush2sk8", url='https://www.twitch.tv/rush2sk8'))
-    print('We have logged in as {0.user}'.format(client))
+    await bot.change_presence(activity=discord.Streaming(name="by rush2sk8", url='https://www.twitch.tv/rush2sk8'))
+    print('We have logged in as {0.user}'.format(bot))
 
-@client.event
-async def on_message(message):
-    """Event when a message is sent"""
-    if message.author.bot:
-        return
+@bot.command()
+async def cup(ctx):
+    message = ctx.message
 
-    # Only look at messages in the cup channel
     if is_cup_channel(message):
+        if not has_cup():
+            curr_cup["message"] = await ctx.send(f'<@&{CUP_ROLE}> Please react to this if you want to play in the cup.')
+            await curr_cup["message"].add_reaction('✋')
+        else:
+            await ctx.send('There is a cup in progress')
 
-        # Start a cup
-        if message.content.startswith('!cup'):
-            if not has_cup():
-                curr_cup["message"] = await message.channel.send(f'<@&{CUP_ROLE}> Please react to this if you want to play in the cup.')
-                await curr_cup["message"].add_reaction('✋')
-            else:
-                await message.channel.send('There is a cup in progress')
+@bot.command()
+@commands.cooldown(1, 30, commands.BucketType.channel)
+async def ping(ctx):
+    if is_cup_channel(ctx.message):
+        await ping_players(ctx.message)
 
-        elif message.content.startswith('!ping'):
-           await ping_players(message)
+@bot.command()
+async def loadcup(ctx, arg):
+    message = ctx.message
 
-        # Admin commands
-        elif str(message.author.id) == ADMIN_USER_ID:
+    if is_cup_channel(message) and str(message.author.id) == ADMIN_USER_ID:
+        if len(message.content.split()) == 1:
+                return
 
-            # Command an admin to load an old cup
-            if message.content.startswith('!loadcup'):
-                if len(message.content.split()) == 1:
-                    return
+        cup_id = message.content.split()[1]
+        loaded_message = await message.channel.fetch_message(cup_id)
 
-                cup_id = message.content.split()[1]
-                loaded_message = await message.channel.fetch_message(cup_id)
+        # In case I load a cup while one is running
+        if has_cup():
+            await message.author.send('Cannot load cup. There is a cup in progress')
+        else:
+            # Otherwise load the cup
+            curr_cup['message'] = loaded_message
 
-                # In case I load a cup while one is running
-                if has_cup():
-                    await message.author.send('Cannot load cup. There is a cup in progress')
-                else:
-                    # Otherwise load the cup
-                    curr_cup['message'] = loaded_message
+            users = await get_reactions_from_message(loaded_message)
 
-                    users = await get_reactions_from_message(loaded_message)
+            curr_cup['users'] = list(users)
+            await message.author.send("Loaded Cup!")
 
-                    curr_cup['users'] = list(users)
-                    await message.author.send("Loaded Cup!")
+        await message.delete()
 
-                await message.delete()
+@bot.command()
+async def endcup(ctx):
+    if is_cup_channel(ctx.message) and str(ctx.message.author.id) == ADMIN_USER_ID:
+        curr_cup['message'] = None
+        curr_cup['users'] = []
+        await ctx.send("The cup has now ended")
 
-            elif message.content.startswith('!echo'):
-                await message.channel.send(message.content)
-
-            elif message.content.startswith('!endcup'):
-                curr_cup['message'] = None
-                curr_cup['users'] = []
-
-@client.event
+@bot.event
 async def on_raw_reaction_add(payload):
     """Raw event for reactions"""
     user, message, reaction = await get_user_msg_reaction_from_payload(payload)
@@ -200,7 +204,7 @@ async def on_raw_reaction_add(payload):
         if reaction[0].count == NUM_PLAYERS:
             await send_cup_message(message)
 
-@client.event
+@bot.event
 async def on_raw_reaction_remove(payload):
     """Raw event when someone removes a reaction from a message"""
     user, _, _ = await get_user_msg_reaction_from_payload(payload)
@@ -219,5 +223,4 @@ async def on_raw_reaction_remove(payload):
             if user.id == payload.user_id:
                 curr_cup['users'].remove(user)
 
-# Login and run the bot
-client.run(DISCORD_TOKEN)
+bot.run(DISCORD_TOKEN)
