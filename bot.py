@@ -14,7 +14,7 @@ CUP_CHANNEL = os.getenv('CUP_CHANNEL')
 CUP_CHANNEL_ID = os.getenv('CUP_CHANNEL_ID')
 GUILD_ID = os.getenv('GUILD_ID')
 ADMIN_USER_ID = os.getenv('ADMIN_USER_ID')
-NUM_PLAYERS = 3
+NUM_PLAYERS = 6
 
 curr_cup = {
     "message": None,
