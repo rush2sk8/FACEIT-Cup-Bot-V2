@@ -12,6 +12,7 @@ CUP_ROLE = os.getenv('CUP_ROLE')
 CUP_CHANNEL = os.getenv('CUP_CHANNEL')
 CUP_CHANNEL_ID = os.getenv('CUP_CHANNEL_ID')
 GUILD_ID = os.getenv('GUILD_ID')
+ADMIN_USER_ID = os.getenv('ADMIN_USER_ID')
 NUM_PLAYERS = 3
 
 curr_cup = {
@@ -46,6 +47,7 @@ def is_cup_channel(message):
     return message.channel.name == CUP_CHANNEL
 
 async def send_cup_message(message):
+    """Sends the team message in an embed"""
     users = list(await get_reactions_from_message(message))
 
     embed = discord.Embed(title="FACEIT Cup Team", description=f"The [team]({message.jump_url}) will consist of:", color=0xffbb00)
@@ -100,14 +102,17 @@ async def send_cup_message(message):
 
 @client.event
 async def on_ready():
+    """Event when the bot logs in"""
     await client.change_presence(activity=discord.Streaming(name="by rush2sk8", url='https://www.twitch.tv/rush2sk8'))
     print('We have logged in as {0.user}'.format(client))
 
 @client.event
 async def on_message(message):
+    """Event when a message is sent"""
     if message.author.bot:
         return
 
+    # Only look at messages in the cup channel
     if is_cup_channel(message):
 
         # Start a cup
@@ -118,35 +123,35 @@ async def on_message(message):
             else:
                 await message.channel.send('There is a cup in progress')
 
+        # Admin commands
+        elif message.author.id == ADMIN_USER_ID:
+
         # Command for me to load an old cup
-        elif message.content.startswith('!loadcup') and message.author.id == 142457707289378816:
-            cup_id = message.content.split()[1]
-            loaded_message = await message.channel.fetch_message(cup_id)
+            if message.content.startswith('!loadcup'):
+                cup_id = message.content.split()[1]
+                loaded_message = await message.channel.fetch_message(cup_id)
 
-            # In case I load a cup while one is running
-            if has_message():
-                await message.channel.send('Cannot load cup. There is a currently running cup')
-            else:
-                # Otherwise load the cup
-                curr_cup['message'] = loaded_message
+                # In case I load a cup while one is running
+                if has_message():
+                    await message.channel.send('Cannot load cup. There is a currently running cup')
+                else:
+                    # Otherwise load the cup
+                    curr_cup['message'] = loaded_message
 
-                users = await get_reactions_from_message(loaded_message)
+                    users = await get_reactions_from_message(loaded_message)
 
-                curr_cup['users'] = list(users)
+                    curr_cup['users'] = list(users)
 
-        elif message.content.startswith('!echo'):
-            await message.channel.send(message.content)
+            elif message.content.startswith('!echo'):
+                await message.channel.send(message.content)
 
-        elif message.content.startswith('!endcup') and message.author.id == 142457707289378816:
-            curr_cup['message'] = None
-            curr_cup['users'] = []
-
-    print(message.content)
-    print(curr_cup)
-
+            elif message.content.startswith('!endcup'):
+                curr_cup['message'] = None
+                curr_cup['users'] = []
 
 @client.event
 async def on_raw_reaction_add(payload):
+    """Raw event for reactions"""
     user, message, reaction = await get_user_msg_reaction_from_payload(payload)
 
     # Return if the reaction is not part of the guild, from the curr cup message, or a bot reaction
@@ -174,6 +179,7 @@ async def on_raw_reaction_add(payload):
 
 @client.event
 async def on_raw_reaction_remove(payload):
+    """Raw event when someone removes a reaction from a message"""
     user, _, _ = await get_user_msg_reaction_from_payload(payload)
 
     if user.bot or \
@@ -190,4 +196,5 @@ async def on_raw_reaction_remove(payload):
             if user.id == payload.user_id:
                 curr_cup['users'].remove(user)
 
+# Login and run the bot
 client.run(DISCORD_TOKEN)

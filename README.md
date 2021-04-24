@@ -14,6 +14,7 @@ Discord bot to ask people to play in a faceit cup
   - `CUP_CHANNEL` Discord cup channel name
   - `CUP_CHANNEL_ID` Channel to look in
   - `GUILD_ID` ID of the guild to run it in
+  - `ADMIN_USER_ID` ID admin user
 
 ## Launching the bot
 Launch with [`pm2`](https://www.npmjs.com/package/pm2)
