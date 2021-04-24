@@ -22,6 +22,14 @@ curr_cup = {
 
 client = discord.Client()
 
+def has_cup():
+    """See if there is a current message"""
+    return curr_cup["message"] is not None
+
+def is_cup_channel(message):
+    """Returns true if the message is from CUP_CHANNEL"""
+    return message.channel.name == CUP_CHANNEL
+
 async def get_reactions_from_message(message):
     """Fetch all non-bot users from the message reaction"""
     users = set()
@@ -31,9 +39,17 @@ async def get_reactions_from_message(message):
                 users.add(user)
     return users
 
-def has_message():
-    """See if there is a current message"""
-    return curr_cup["message"] is not None
+async def ping_players(message):
+    """Ping cup players"""
+    if not has_cup():
+        await message.channel.send('There currently no cup in progress')
+    else:
+        to_send = f'You have been pinged by {message.author.mention}:\n'
+
+        for user in curr_cup['users']:
+            to_send += f'{user.mention} \n'
+
+        await message.channel.send(to_send)
 
 async def get_user_msg_reaction_from_payload(payload):
     """Given a payload it will fetch the user, message, and reaction"""
@@ -41,10 +57,6 @@ async def get_user_msg_reaction_from_payload(payload):
     message = await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
     reaction = message.reactions
     return (user, message, reaction)
-
-def is_cup_channel(message):
-    """Returns true if the message is from CUP_CHANNEL"""
-    return message.channel.name == CUP_CHANNEL
 
 async def send_cup_message(message):
     """Sends the team message in an embed"""
@@ -117,23 +129,29 @@ async def on_message(message):
 
         # Start a cup
         if message.content.startswith('!cup'):
-            if not has_message():
+            if not has_cup():
                 curr_cup["message"] = await message.channel.send(f'<@&{CUP_ROLE}> Please react to this if you want to play in the cup.')
                 await curr_cup["message"].add_reaction('✋')
             else:
                 await message.channel.send('There is a cup in progress')
 
-        # Admin commands
-        elif message.author.id == ADMIN_USER_ID:
+        elif message.content.startswith('!ping'):
+           await ping_players(message)
 
-        # Command for me to load an old cup
+        # Admin commands
+        elif str(message.author.id) == ADMIN_USER_ID:
+
+            # Command an admin to load an old cup
             if message.content.startswith('!loadcup'):
+                if len(message.content.split()) == 1:
+                    return
+
                 cup_id = message.content.split()[1]
                 loaded_message = await message.channel.fetch_message(cup_id)
 
                 # In case I load a cup while one is running
-                if has_message():
-                    await message.channel.send('Cannot load cup. There is a currently running cup')
+                if has_cup():
+                    await message.author.send('Cannot load cup. There is a cup in progress')
                 else:
                     # Otherwise load the cup
                     curr_cup['message'] = loaded_message
@@ -141,6 +159,9 @@ async def on_message(message):
                     users = await get_reactions_from_message(loaded_message)
 
                     curr_cup['users'] = list(users)
+                    await message.author.send("Loaded Cup!")
+
+                await message.delete()
 
             elif message.content.startswith('!echo'):
                 await message.channel.send(message.content)
@@ -157,11 +178,11 @@ async def on_raw_reaction_add(payload):
     # Return if the reaction is not part of the guild, from the curr cup message, or a bot reaction
     if user.bot or \
         not (str(payload.guild_id) == GUILD_ID) or \
-        (has_message() and not (payload.message_id == curr_cup['message'].id)):
+        (has_cup() and not (payload.message_id == curr_cup['message'].id)):
         return
 
     # If we have a current running cup and the reaction is to the current message
-    if has_message() and payload.message_id == curr_cup['message'].id:
+    if has_cup() and payload.message_id == curr_cup['message'].id:
 
         # Remove emoji if they add another one or have more than normal
         if payload.emoji.name != '✋':
@@ -172,6 +193,8 @@ async def on_raw_reaction_add(payload):
         if payload.emoji.name == '✋' and reaction[0].count > NUM_PLAYERS:
             await message.remove_reaction(payload.emoji, user)
             return
+
+        curr_cup['users'].append(user)
 
         # If the number of reactions is enough to start a cup
         if reaction[0].count == NUM_PLAYERS:
@@ -184,12 +207,12 @@ async def on_raw_reaction_remove(payload):
 
     if user.bot or \
         not (str(payload.guild_id) == GUILD_ID) or \
-        (has_message() and not (payload.message_id == curr_cup['message'].id)) or \
+        (has_cup() and not (payload.message_id == curr_cup['message'].id)) or \
         payload.emoji.name != '✋':
         return
 
     # If there is a cup running and the message is the same
-    if has_message() and payload.message_id == curr_cup['message'].id:
+    if has_cup() and payload.message_id == curr_cup['message'].id:
 
         # Find and remove the user from the current cup.
         for user in curr_cup['users']:
