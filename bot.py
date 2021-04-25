@@ -139,8 +139,14 @@ async def cup(ctx):
 @bot.command()
 @commands.cooldown(1, 30, commands.BucketType.channel)
 async def ping(ctx):
-    if is_cup_channel(ctx.message):
+    if is_cup_channel(ctx.message) and has_cup():
         await ping_players(ctx.message)
+
+@bot.command()
+async def team(ctx):
+    if is_cup_channel(ctx.message) and has_cup():
+        if len(curr_cup['users']) == NUM_PLAYERS:
+            await send_cup_message(ctx.message)
 
 @bot.command()
 async def loadcup(ctx, arg):
