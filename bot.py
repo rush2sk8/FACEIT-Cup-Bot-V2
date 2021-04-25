@@ -147,7 +147,7 @@ async def ping(ctx):
 async def team(ctx):
     if is_cup_channel(ctx.message) and has_cup():
         if len(curr_cup['users']) == (NUM_PLAYERS-1):
-            await send_cup_message(ctx.message)
+            await send_cup_message(curr_cup['message'])
 
 @bot.command()
 async def loadcup(ctx, arg):
