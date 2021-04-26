@@ -25,6 +25,9 @@ Launch with [`pm2`](https://www.npmjs.com/package/pm2)
 Base features:
 
 `!team` - List the current team
+
 `!cup` - Start a single FaceiT Cup
+
 `!endcup` - Ends the current cup
+
 `!ping` - Pings the team. Cooldown of 30seconds
