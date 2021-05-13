@@ -20,3 +20,14 @@ Discord bot to ask people to play in a faceit cup
 Launch with [`pm2`](https://www.npmjs.com/package/pm2)
 
 `pm2 start bot.py`
+
+## Commands 
+Base features:
+
+`!team` - List the current team
+
+`!cup` - Start a single FaceiT Cup
+
+`!endcup` - Ends the current cup
+
+`!ping` - Pings the team. Cooldown of 30seconds
