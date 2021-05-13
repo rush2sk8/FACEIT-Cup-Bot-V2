@@ -144,12 +144,6 @@ async def ping(ctx):
             await ping_players(ctx.message)
 
 @bot.command()
-async def team(ctx):
-    if is_cup_channel(ctx.message) and has_cup():
-        if len(curr_cup['users']) == (NUM_PLAYERS-1):
-            await send_cup_message(curr_cup['message'])
-
-@bot.command()
 async def loadcup(ctx, arg):
     message = ctx.message
 
@@ -176,7 +170,7 @@ async def loadcup(ctx, arg):
 
 @bot.command()
 async def endcup(ctx):
-    if is_cup_channel(ctx.message) and str(ctx.message.author.id) == ADMIN_USER_ID:
+    if is_cup_channel(ctx.message):
         curr_cup['message'] = None
         curr_cup['users'] = []
         await ctx.send("The cup has now ended")
