@@ -1,5 +1,6 @@
 # FACEIT-Cup-Bot-V2
 [![Deploy bot](https://github.com/rush2sk8/FACEIT-Cup-Bot-V2/actions/workflows/main.yml/badge.svg)](https://github.com/rush2sk8/FACEIT-Cup-Bot-V2/actions/workflows/main.yml)
+
 A rewrite of Faceit Cup bot V1
 Discord bot to ask people to play in a faceit cup
 
