@@ -18,7 +18,8 @@ NUM_PLAYERS = 6
 
 curr_cup = {
     "message": None,
-    "users": []
+    "users": [],
+    "maybe": []
 }
 
 bot = commands.Bot(command_prefix='!', intents= discord.Intents.default())
@@ -133,6 +134,7 @@ async def cup(ctx):
         if not has_cup():
             curr_cup["message"] = await ctx.send(f'<@&{CUP_ROLE}> Please react to this if you want to play in the cup.')
             await curr_cup["message"].add_reaction('✋')
+            await curr_cup["message"].add_reaction('Ⓜ️')
         else:
             await ctx.send('There is a cup in progress')
 
@@ -144,7 +146,7 @@ async def ping(ctx):
             await ping_players(ctx.message)
 
 @bot.command()
-async def loadcup(ctx, arg):
+async def loadcup(ctx, _):
     message = ctx.message
 
     if is_cup_channel(message) and str(message.author.id) == ADMIN_USER_ID:
@@ -173,6 +175,7 @@ async def endcup(ctx):
     if is_cup_channel(ctx.message):
         curr_cup['message'] = None
         curr_cup['users'] = []
+        curr_cup["maybe"] = []
         await ctx.send("The cup has now ended")
 
 @bot.event
@@ -189,13 +192,27 @@ async def on_raw_reaction_add(payload):
     # If we have a current running cup and the reaction is to the current message
     if has_cup() and payload.message_id == curr_cup['message'].id:
 
+        emoji = payload.emoji.name
+
+        if emoji == 'Ⓜ️' and (user in curr_cup["users"]):
+            curr_cup["users"].remove(user)
+            curr_cup["maybe"].append(user)
+            await message.remove_reaction('✋', user)
+            return
+
+        if emoji == '✋' and (user in curr_cup["maybe"]):
+            curr_cup["maybe"].remove(user)
+            curr_cup["users"].append(user)
+            await message.remove_reaction('Ⓜ️', user)
+            return
+
         # Remove emoji if they add another one or have more than normal
-        if payload.emoji.name != '✋':
+        if not emoji in ['✋', 'Ⓜ️']:
             await message.remove_reaction(payload.emoji, user)
             return
 
         # if the emoji is a hand and they add more than the number of the players then remove it
-        if payload.emoji.name == '✋' and reaction[0].count > NUM_PLAYERS:
+        if emoji == '✋' and reaction[0].count > NUM_PLAYERS:
             await message.remove_reaction(payload.emoji, user)
             return
 
