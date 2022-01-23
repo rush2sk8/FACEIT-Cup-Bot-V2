@@ -18,6 +18,7 @@ NUM_PLAYERS = 6
 
 curr_cup = {
     "message": None,
+    "pop_message": None,
     "users": [],
     "maybe": []
 }
@@ -35,11 +36,17 @@ def is_cup_channel(message):
 async def get_reactions_from_message(message):
     """Fetch all non-bot users from the message reaction"""
     users = set()
+    maybe = set()
     for reaction in message.reactions:
-        async for user in reaction.users():
-            if not user.bot:
-                users.add(user)
-    return users
+        if reaction.emoji == "✋":
+            async for user in reaction.users():
+                if not user.bot:
+                    users.add(user)
+        elif reaction.emoji == "Ⓜ️":
+            async for m in reaction.users():
+                if not m.bot:
+                    maybe.add(m)
+    return (users, maybe)
 
 async def ping_players(message):
     """Ping cup players"""
@@ -62,7 +69,7 @@ async def get_user_msg_reaction_from_payload(payload):
 
 async def send_cup_message(message):
     """Sends the team message in an embed"""
-    users = list(await get_reactions_from_message(message))
+    users, _ = list(await get_reactions_from_message(message))
 
     embed = discord.Embed(title="FACEIT Cup Team", description=f"The [team]({message.jump_url}) will consist of:", color=0xffbb00)
 
@@ -101,7 +108,7 @@ async def send_cup_message(message):
     embed.set_footer(text="by rush2sk8")
 
     # Send the message
-    await message.channel.send(file=embed_image, embed=embed)
+    curr_cup["pop_message"] = await message.channel.send(file=embed_image, embed=embed)
 
     # We don't care if they're there or not
     try:
@@ -163,9 +170,10 @@ async def loadcup(ctx, _):
             # Otherwise load the cup
             curr_cup['message'] = loaded_message
 
-            users = await get_reactions_from_message(loaded_message)
+            users, maybe = await get_reactions_from_message(loaded_message)
 
             curr_cup['users'] = list(users)
+            curr_cup["maybe"] = list(maybe)
             await message.author.send("Loaded Cup!")
 
         await message.delete()
@@ -174,6 +182,7 @@ async def loadcup(ctx, _):
 async def endcup(ctx):
     if is_cup_channel(ctx.message):
         curr_cup['message'] = None
+        curr_cup['pop_message'] = None
         curr_cup['users'] = []
         curr_cup["maybe"] = []
         await ctx.send("The cup has now ended")
@@ -240,5 +249,9 @@ async def on_raw_reaction_remove(payload):
         for user in curr_cup['users']:
             if user.id == payload.user_id:
                 curr_cup['users'].remove(user)
+
+        if len(curr_cup["users"]) != NUM_PLAYERS and curr_cup["pop_message"] is not None:
+            await curr_cup["pop_message"].delete()
+            curr_cup["pop_message"] = None
 
 bot.run(DISCORD_TOKEN)
