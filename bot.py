@@ -178,6 +178,7 @@ async def loadcup(ctx, _):
 
         await message.delete()
 
+
 @bot.command()
 async def endcup(ctx):
     if is_cup_channel(ctx.message):
@@ -186,6 +187,11 @@ async def endcup(ctx):
         curr_cup['users'] = []
         curr_cup["maybe"] = []
         await ctx.send("The cup has now ended")
+
+@bot.command()
+async def restartcup(ctx):
+    await endcup(ctx)
+    await cup(ctx)
 
 @bot.event
 async def on_raw_reaction_add(payload):
