@@ -4,7 +4,6 @@ from pathlib import Path
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from PIL import Image
 
 load_dotenv(dotenv_path=Path('.')/'.env')
 
@@ -14,7 +13,7 @@ CUP_CHANNEL = os.getenv('CUP_CHANNEL')
 CUP_CHANNEL_ID = os.getenv('CUP_CHANNEL_ID')
 GUILD_ID = os.getenv('GUILD_ID')
 ADMIN_USER_ID = os.getenv('ADMIN_USER_ID')
-NUM_PLAYERS = 6
+NUM_PLAYERS = 2
 
 curr_cup = {
     "message": None,
@@ -67,58 +66,29 @@ async def get_user_msg_reaction_from_payload(payload):
     reaction = message.reactions
     return (user, message, reaction)
 
+async def set_bot_presence_to_team():
+    curr_players = ''
+    for user in curr_cup['users']:
+        curr_players += f'{user.name} '
+    await bot.change_presence(activity=discord.Game(name=f"Current Cup Team: {curr_players}"))
+
 async def send_cup_message(message):
     """Sends the team message in an embed"""
     users, _ = list(await get_reactions_from_message(message))
-
     embed = discord.Embed(title="FACEIT Cup Team", description=f"The [team]({message.jump_url}) will consist of:", color=0xffbb00)
+
+    embed.set_thumbnail(url='https://cdn.akamai.steamstatic.com/steamcommunity/public/images/avatars/e7/e74d4f1f7730b917c5a33c492a1112973862bb47_full.jpg')
+    embed.set_footer(text="by rush2sk8")
 
     for i, user in enumerate(users):
         # Add user to embed message
         embed.add_field(name=f'Player {i+1}', value=user.name, inline=False)
 
-        # Download player avatars
-        await user.avatar_url.save(f'player{i}.png')
-
-    # Create a special tiled image
-    player1 = Image.open('player0.png')
-    player2 = Image.open('player1.png')
-    player3 = Image.open('player2.png')
-    player4 = Image.open('player3.png')
-    player5 = Image.open('player4.png')
-
-    image_size = player1.size
-
-    # Create blank image
-    new = Image.new('RGB', (3*image_size[0],2*image_size[1]), (0,0,0))
-
-    # Paste in players
-    new.paste(player1, (0,0))
-    new.paste(player2, (image_size[0],0))
-    new.paste(player3, (image_size[0]*2,0))
-    new.paste(player4, (image_size[0] - (int(image_size[0]/2)), image_size[0]))
-    new.paste(player5, (image_size[0] + (int(image_size[0]/2)), image_size[0]))
-
-    # Save image
-    new.save('gallery.png', 'PNG')
-
-    # Embed the new image
-    embed_image = discord.File('gallery.png', filename='image.png')
-    embed.set_thumbnail(url='attachment://image.png')
-    embed.set_footer(text="by rush2sk8")
-
     # Send the message
-    curr_cup["pop_message"] = await message.channel.send(file=embed_image, embed=embed)
+    curr_cup["pop_message"] = await message.channel.send(embed=embed)
 
-    # We don't care if they're there or not
-    try:
-        os.remove('gallery.png')
-
-        # Delete the files
-        for i in range(0, NUM_PLAYERS - 1):
-            os.remove(f'player{i}.png')
-    except FileNotFoundError:
-        pass
+    # Set bot status to current team
+    await set_bot_presence_to_team()
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -177,7 +147,7 @@ async def loadcup(ctx, _):
             await message.author.send("Loaded Cup!")
 
         await message.delete()
-
+        await set_bot_presence_to_team()
 
 @bot.command()
 async def endcup(ctx):
@@ -187,6 +157,7 @@ async def endcup(ctx):
         curr_cup['users'] = []
         curr_cup["maybe"] = []
         await ctx.send("The cup has now ended")
+        await bot.change_presence(activity=discord.Streaming(name="by rush2sk8", url='https://www.twitch.tv/rush2sk8'))
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -254,5 +225,6 @@ async def on_raw_reaction_remove(payload):
         if len(curr_cup["users"]) != NUM_PLAYERS and curr_cup["pop_message"] is not None:
             await curr_cup["pop_message"].delete()
             curr_cup["pop_message"] = None
+            await bot.change_presence(activity=discord.Streaming(name="by rush2sk8", url='https://www.twitch.tv/rush2sk8'))
 
 bot.run(DISCORD_TOKEN)

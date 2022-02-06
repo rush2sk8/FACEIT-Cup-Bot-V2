@@ -17,4 +17,5 @@ jobs:
             cd discord_bots/
             cd FACEIT-Cup-Bot-V2/
             git pull
+            pip install -r requirements.txt
             ./run.sh
