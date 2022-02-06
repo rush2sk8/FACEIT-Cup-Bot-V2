@@ -188,11 +188,6 @@ async def endcup(ctx):
         curr_cup["maybe"] = []
         await ctx.send("The cup has now ended")
 
-@bot.command()
-async def restartcup(ctx):
-    await endcup(ctx)
-    await cup(ctx)
-
 @bot.event
 async def on_raw_reaction_add(payload):
     """Raw event for reactions"""
