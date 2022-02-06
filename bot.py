@@ -145,9 +145,10 @@ async def loadcup(ctx, _):
             curr_cup['users'] = list(users)
             curr_cup["maybe"] = list(maybe)
             await message.author.send("Loaded Cup!")
+            await set_bot_presence_to_team()
 
         await message.delete()
-        await set_bot_presence_to_team()
+
 
 @bot.command()
 async def endcup(ctx):
